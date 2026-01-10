@@ -1,9 +1,14 @@
 package org.example;
+import org.w3c.dom.ls.LSOutput;
+
 import java.io.*;
 import java.net.*;
+import java.nio.charset.StandardCharsets;
 import java.sql.SQLOutput;
 import java.util.HashMap;
 import java.util.Map;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 
 //TIP To <b>Run</b> code, press <shortcut actionId="Run"/> or
 // click the <icon src="AllIcons.Actions.Execute"/> icon in the gutter.
@@ -13,13 +18,26 @@ public class Main {
         try (ServerSocket serverSocket = new ServerSocket(port)) {
             System.out.println("Servidor escuchando en puerto " + port);
             while (true) {
-                try (Socket clientSocket = serverSocket.accept()) {
-                    handleRequest(clientSocket);
-                } catch (IOException e) {
-                    System.err.println("Error al manejar la conexión: " + e.getMessage());
+                Socket clientSocket = serverSocket.accept();
+                      new Thread(() -> {
+                          System.out.println("Nueva conexion desde " + clientSocket.getInetAddress());
+
+                          try {
+                              handleRequest(clientSocket);
+                          } catch (IOException e) {
+                              System.err.println("Error al manejar cliente" + e.getMessage());
+                              e.printStackTrace();
+                          }finally {
+                              try {
+                                  clientSocket.close();
+                              } catch (IOException e) {
+                                  System.err.println("Error al cerrar socket: " + e.getMessage());
+                              }
+                          }
+
+                      }).start();
                 }
-            }
-        } catch (IOException e) {
+            }catch (IOException e) {
             System.err.println("No se pudo iniciar el servidor: " + e.getMessage());
         }
     }
@@ -48,7 +66,7 @@ public class Main {
 
         String method = parts[0];
         String path = parts[1];
-        //System.out.println(path);
+        System.out.println("EL PATH es: " + path);
         String version = parts[2];
 
 
@@ -62,15 +80,15 @@ public class Main {
             purePath = pathAndQuery[0];
             if(pathAndQuery.length > 1 && !pathAndQuery[1].isEmpty()){
                 query = pathAndQuery[1];
-                System.out.println("Query String completa : " + query);
+               // System.out.println("Query String completa : " + query);
                 //para soportar varios parametros
                 String[] pairs = query.split("&");
                 for (String p : pairs){
                     String[] claveValor = p.split("=", 2);
-                    String clave = claveValor[0];
-                    String valor = claveValor.length > 1 ? claveValor[1] : "";
+                    String clave = URLDecoder.decode(claveValor[0], StandardCharsets.UTF_8);
+                    String valor = claveValor.length > 1 ? URLDecoder.decode(claveValor[1], StandardCharsets.UTF_8) : "";
                     queryValores.put(clave, valor);
-                    System.out.println("parametro: " + clave + " = " + valor);
+                   // System.out.println("parametro: " + clave + " = " + valor);
                 }
 
             }
@@ -84,22 +102,10 @@ public class Main {
         if("/".equals(purePath)){
             String nombre = queryValores.getOrDefault("nombre", "Visitante");
             String responseBody = "<html><body><h1>Hello, your name is " + nombre + "</h1></body></html>";
-            out.println("HTTP/1.1 200 OK");
-            out.println("Content-Type: text/html;charset=utf-8");
-            out.println("Content-Length: " + responseBody.length());
-            out.println();
-            out.flush();
-            dataOut.write(responseBody.getBytes("UTF-8"));
-            dataOut.flush();
+            sendResponse(out, dataOut, "200 OK", responseBody);
         }else {
             String responseBody = "<html><body><h1>404 Not Found</h1></body></html>";
-            out.println("HTTP/1.1 404 Not Found");
-            out.println("Content-Type: text/html;charset=utf-8");
-            out.println("Content-Length: " + responseBody.length());
-            out.println();
-            out.flush();
-            dataOut.write(responseBody.getBytes("UTF-8"));
-            dataOut.flush();
+            sendResponse(out, dataOut, "404 Not Found", responseBody);
         }
         // Prepara respuesta simple
        /* String responseBody = "<html><body><h1>Hello from Java HTTP Server!</h1><p>La pagina " + path + " no existe</p></body></html>";
@@ -115,5 +121,16 @@ public class Main {
         in.close();
         out.close();
         dataOut.close();
+    }
+
+    private static void sendResponse(PrintWriter out, BufferedOutputStream dataOut, String status, String body) throws IOException {
+        byte[] bodyBytes = body.getBytes("UTF-8");
+        out.println("HTTP/1.1 " + status);
+        out.println("Content-Type: text/html; charset=utf-8");
+        out.println("Content-Length: " + bodyBytes.length);  // Siempre correcto
+        out.println();
+        out.flush();
+        dataOut.write(bodyBytes);
+        dataOut.flush();
     }
     }
