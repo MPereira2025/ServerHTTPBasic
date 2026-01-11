@@ -5,7 +5,9 @@ import java.io.*;
 import java.net.*;
 import java.nio.charset.StandardCharsets;
 import java.sql.SQLOutput;
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
@@ -99,14 +101,49 @@ public class Main {
 
 
 
-        if("/".equals(purePath)){
+        switch(purePath){
+            case"/"->{
             String nombre = queryValores.getOrDefault("nombre", "Visitante");
             String responseBody = "<html><body><h1>Hello, your name is " + nombre + "</h1></body></html>";
             sendResponse(out, dataOut, "200 OK", responseBody);
-        }else {
-            String responseBody = "<html><body><h1>404 Not Found</h1></body></html>";
-            sendResponse(out, dataOut, "404 Not Found", responseBody);
+            }
+            case"/hello"->{
+                String nombre = queryValores.getOrDefault("nombre", "Visitante");
+                String responseBody = "<html><body><h1>¡Hola mundo desde /hello!</h1></body></html>";
+                sendResponse(out, dataOut, "200 OK", responseBody);
+            }
+            case"/echo"->{
+                StringBuilder html = new StringBuilder();
+                html.append("<html><body><h1>Echo de parámetros</h1>");
+                if (queryValores.isEmpty()){
+                    html.append("<p>No se recibieron parámetros en la URL</p>");
+                }else{
+                    html.append("<ul>");
+                    for (Map.Entry<String, String> m : queryValores.entrySet()){
+                        String claveM = m.getKey();
+                        String valorM = m.getValue();
+                        html.append("<li>").append(claveM).append(" = ").append(valorM).append("</li>");
+                    }
+                    html.append("</ul>");
+                }
+                html.append("</body></html>");
+
+                String responseBody = html.toString();
+                sendResponse(out, dataOut, "200 OK", responseBody);
+            }
+            case"/about"->{
+                String nombre = queryValores.getOrDefault("nombre", "Visitante");
+                String responseBody = "<html><body><h1>Sobre este servidor</h1><br><br><p>Hecho desde cero con java.net" +
+                        "</p></body></html>";
+                sendResponse(out, dataOut, "200 OK", responseBody);
+            }
+            default->{
+                String responseBody = "<html><body><h1>404 Not Found</h1></body></html>";
+                sendResponse(out, dataOut, "404 Not Found", responseBody);
+            }
         }
+
+
         // Prepara respuesta simple
        /* String responseBody = "<html><body><h1>Hello from Java HTTP Server!</h1><p>La pagina " + path + " no existe</p></body></html>";
         out.println("HTTP/1.1 404 Not Found");
