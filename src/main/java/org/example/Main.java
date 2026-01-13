@@ -55,10 +55,8 @@ public class Main {
 
         // Lee headers hasta línea vacía
         String headerLine;
-        while ((headerLine = in.readLine()) != null && !headerLine.isEmpty()) {
-            // Puedes parsear headers aquí si necesitas
-            System.out.println("HeaderLiner: " + headerLine);
-        }
+        int contentLength = 0;
+        String contentType = null;
 
         String[] parts = requestLine.split(" ");
         if(parts.length != 3) {
@@ -70,6 +68,29 @@ public class Main {
         String path = parts[1];
         System.out.println("EL PATH es: " + path);
         String version = parts[2];
+
+        while ((headerLine = in.readLine()) != null && !headerLine.isEmpty()) {
+            // Puedes parsear headers aquí si necesitas
+            System.out.println("HeaderLiner: " + headerLine);
+            if (headerLine.startsWith("Content-Length")){
+                String cacheLength = headerLine.substring("Content-Length:".length()).trim();
+                contentLength = Integer.parseInt(cacheLength);
+            }else if (headerLine.startsWith("Content-Type:")){
+                String cacheType = headerLine.substring("Content-Length:".length()).trim();
+            }
+        }
+
+        //Leer si hay body
+        String body = "";
+        if ("POST".equals(method) && contentLength > 0){
+            char[] bodyChars = new char[contentLength];
+            in.read(bodyChars, 0, contentLength);
+            body = new String(bodyChars);
+            System.out.println("Body leido: " + body);
+        }
+
+
+
 
 
         //Despues de obtener el path = parts[1]
@@ -102,6 +123,39 @@ public class Main {
 
 
         switch(purePath){
+            case"/form"->{
+                if("POST".equals(method)){
+                    //Parsea body como form data (igual que query)
+                    Map<String, String> postParams = new HashMap<>();
+                    if(contentType != null && contentType.contains("application/x-www-form-urlencoded")){
+                        String[] pairs = body.split("&");
+                        for(String p: pairs){
+                            String[] claveValor = p.split("=", 2);
+                            String clave = URLDecoder.decode(claveValor[0], StandardCharsets.UTF_8);
+                            String valor = claveValor.length > 1 ? URLDecoder.decode(claveValor[1], StandardCharsets.UTF_8) : "";
+                            postParams.put(clave, valor);
+                        }
+                    }
+                    //Se construye la respuesta con los param del POST
+                    StringBuilder html = new StringBuilder();
+                    html.append("<html><body><h1>Datos recibidos via POST</h1>");
+                    if (postParams.isEmpty()){
+                        html.append("<p>No se recibieron datos</p>");
+                    }else{
+                        html.append("<ul>");
+                        for (Map.Entry<String, String> pP : postParams.entrySet()){
+                            html.append("<li>").append(pP.getKey()).append(" = ").append(pP.getValue()).append("</li>");
+                        }
+                        html.append("</ul>");
+                    }
+                    html.append("</body></html>");
+
+                    sendResponse(out, dataOut, "200 OK", html.toString());
+                }else {
+                    sendResponse(out, dataOut, "405 Method Not Allowed", "<h1>405 Method Not Allowed</h1><p>Solo POST aqui</p>");
+                }
+
+            }
             case"/"->{
             String nombre = queryValores.getOrDefault("nombre", "Visitante");
             String responseBody = "<html><body><h1>Hello, your name is " + nombre + "</h1></body></html>";
