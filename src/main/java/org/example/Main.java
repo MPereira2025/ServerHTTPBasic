@@ -75,8 +75,11 @@ public class Main {
             if (headerLine.startsWith("Content-Length")){
                 String cacheLength = headerLine.substring("Content-Length:".length()).trim();
                 contentLength = Integer.parseInt(cacheLength);
+                System.out.println("Content-Length encontrado: " + contentLength);
             }else if (headerLine.startsWith("Content-Type:")){
-                String cacheType = headerLine.substring("Content-Length:".length()).trim();
+                String cacheType = headerLine.substring("Content-Type:".length()).trim();
+                contentType = cacheType;
+                System.out.println("Content-Type encontrado: " + contentType);
             }
         }
 
@@ -123,10 +126,26 @@ public class Main {
 
 
         switch(purePath){
+            
             case"/form"->{
                 if("POST".equals(method)){
                     //Parsea body como form data (igual que query)
                     Map<String, String> postParams = new HashMap<>();
+
+                    if (contentLength <= 0) {
+                        sendResponse(out, dataOut, "411 Length Required",
+                                "<html><body><h1>411 Length Required</h1>" +
+                                        "<p>Se requiere Content-Length para peticiones POST con body</p></body></html>");
+                        return;
+                    }
+                    if (contentType == null || !contentType.contains("application/x-www-form-urlencoded")) {
+                        sendResponse(out, dataOut, "415 Unsupported Media Type",
+                                "<html><body><h1>415 Unsupported Media Type</h1>" +
+                                        "<p>Solo se acepta application/x-www-form-urlencoded. " +
+                                        "Content-Type recibido: " + (contentType != null ? contentType : "ninguno") + "</p></body></html>");
+                        return;  // ¡Importante! Salir para no procesar más
+                    }
+
                     if(contentType != null && contentType.contains("application/x-www-form-urlencoded")){
                         String[] pairs = body.split("&");
                         for(String p: pairs){
@@ -136,6 +155,8 @@ public class Main {
                             postParams.put(clave, valor);
                         }
                     }
+
+
                     //Se construye la respuesta con los param del POST
                     StringBuilder html = new StringBuilder();
                     html.append("<html><body><h1>Datos recibidos via POST</h1>");
@@ -151,9 +172,16 @@ public class Main {
                     html.append("</body></html>");
 
                     sendResponse(out, dataOut, "200 OK", html.toString());
+                    System.out.println("POST recibido en /form");
+                    System.out.println("  - Content-Type: " + contentType);
+                    System.out.println("  - Content-Length: " + contentLength);
+                    System.out.println("  - Body crudo: " + body);
+                    System.out.println("  - Parámetros parseados: " + postParams);
+
                 }else {
                     sendResponse(out, dataOut, "405 Method Not Allowed", "<h1>405 Method Not Allowed</h1><p>Solo POST aqui</p>");
                 }
+
 
             }
             case"/"->{
@@ -180,6 +208,7 @@ public class Main {
                     }
                     html.append("</ul>");
                 }
+                html.append("<a href=\"http://localhost:8080/\">Volver al home</a>");
                 html.append("</body></html>");
 
                 String responseBody = html.toString();
@@ -188,7 +217,7 @@ public class Main {
             case"/about"->{
                 String nombre = queryValores.getOrDefault("nombre", "Visitante");
                 String responseBody = "<html><body><h1>Sobre este servidor</h1><br><br><p>Hecho desde cero con java.net" +
-                        "</p></body></html>";
+                        "</p><br><br><p>Aprendiendo backend desde cero</p></body></html>";
                 sendResponse(out, dataOut, "200 OK", responseBody);
             }
             default->{
