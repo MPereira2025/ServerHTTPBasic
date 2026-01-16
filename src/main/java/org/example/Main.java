@@ -125,45 +125,83 @@ public class Main {
 
         switch(purePath){
             case"/api/post"-> {
-                if (!"POST".equals(method)) {
-                    sendResponse(out, dataOut, "405 Method Not Allowed", "<h1>405 Method Not Allowed</h1><p>Solo POST aqui</p>", "text/html");
-                    return;
-                }
-                //Se verifica posibles exceptiones por parte del cliente
-                    if (contentType == null || !contentType.contains("application/json")){
+                try {
+                    if (!"POST".equals(method)) {
+                        sendResponse(out, dataOut, "405 Method Not Allowed", "<h1>405 Method Not Allowed</h1><p>Solo POST aqui</p>", "text/html");
+                        return;
+                    }
+                    //Se verifica posibles exceptiones por parte del cliente
+                    if (contentType == null || !contentType.contains("application/json")) {
                         sendResponse(out, dataOut, "415 Unsupported Media Type", "{\"error\": \"Solo se acepta application/json. Recibido: "
                                 + (contentType != null ? contentType : "ninguno") + "\"}", "application/json");
-                    return;
+                        return;
                     }
-                if (contentLength <= 0){
-                    sendResponse(out, dataOut, "411 Length Required", "{\"error\": \"Se requiere Content-Length para POST con body\"}",
-                            "application/json");
-                    return;
+                    if (contentLength <= 0) {
+                        sendResponse(out, dataOut, "411 Length Required", "{\"error\": \"Se requiere Content-Length para POST con body\"}",
+                                "application/json");
+                        return;
+                    }
+
+                    //Arriba por fuera del switch ya se leyo el body
+                    System.out.println("JSON recibido: " + body);
+
+                    //Parsear JSON manualmente
+                    Map<String, String> jsonParams = parseSimpleJson(body);
+
+                    if (jsonParams.isEmpty()) {
+                        sendResponse(out, dataOut, "400 Bad Request", "{\"error\": \"JSON mal formulado o vacio\"}",
+                                "application/json");
+                        return;
+                    }
+
+
+                    if (!jsonParams.containsKey("nombre")) {
+                        sendResponse(out, dataOut, "400 Bad Request",
+                                "{\"error\": \"Falta el campo requerido 'nombre'\"}",
+                                "application/json");
+                        return;
+                    }
+                    if (!jsonParams.containsKey("edad")) {
+                        sendResponse(out, dataOut, "400 Bad Request",
+                                "{\"error\": \"Falta el campo requerido 'edad'\"}",
+                                "application/json");
+                        return;
+                    }
+                    if (!jsonParams.containsKey("email")) {
+                        sendResponse(out, dataOut, "400 Bad Request",
+                                "{\"error\": \"Falta el campo requerido 'email'\"}",
+                                "application/json");
+                        return;
+                    }
+
+                    //Construir respuesta JSON basada en los datos recibidos
+                    String nombre = jsonParams.getOrDefault("nombre", "Visitante");
+                    String edad = jsonParams.getOrDefault("edad", "desconocida");
+
+                    String edadStr = jsonParams.get("edad");
+                    int edadNum;
+                    try {
+                        edadNum = Integer.parseInt(edadStr);
+                    } catch (NumberFormatException e) {
+                        sendResponse(out, dataOut, "400 Bad Request",
+                                "{\"error\": \"El campo 'edad' debe ser un número entero\"}",
+                                "application/json");
+                        return;
+                    }
+                    String respuestaJson = String.format("{\"saludo\": \"Hola %s!\", \"mensaje\": \"Tienes %s years\", \"recibido\": %s}",
+                            nombre, edad, jsonParams.toString().replace("=", "\": \"").replace(", ", "\", \""));
+
+                    sendResponse(out, dataOut, "200 OK", respuestaJson, "application/json");
+                }catch(Exception e){
+                    System.err.println("Error inesperado en /api/post: " + e.getMessage());
+                    e.printStackTrace();
+
+                    String errorJson = "{\"error\": \"Error interno del servidor\", \"detalle\": \"" + e.getMessage() + "\"}";
+                    sendResponse(out, dataOut, "500 Internal Server Error", errorJson, "application/json");
+                }
                 }
 
-                //Arriba por fuera del switch ya se leyo el body
-                System.out.println("JSON recibido: " + body);
-
-                //Parsear JSON manualmente
-                Map<String, String> jsonParams = parseSimpleJson(body);
-
-                if (jsonParams.isEmpty()){
-                    sendResponse(out, dataOut, "400 Bad Request","{\"error\": \"JSON mal formulado o vacio\"}",
-                            "application/json");
-                    return;
-                }
-
-                //Construir respuesta JSON basada en los datos recibidos
-                String nombre = jsonParams.getOrDefault("nombre", "Visitante");
-                String edad = jsonParams.getOrDefault("edad", "desconocida");
-
-                String respuestaJson = String.format("{\"saludo\": \"Hola %s!\", \"mensaje\": \"Tienes %s years\", \"recibido\": %s}",
-                        nombre, edad, jsonParams.toString().replace("=", "\": \"").replace(", ", "\", \""));
-
-                sendResponse(out, dataOut, "200 OK", respuestaJson, "application/json");
-                }
-
-            case"/api/hello"->{
+            case"/api/hello"-> {
                 if (!"GET".equals(method)) {
                     sendResponse(out, dataOut, "405 Method Not Allowed",
                             "<h1>405 Method Not Allowed</h1><p>Solo GET aquí</p>", "text/html");
@@ -176,6 +214,7 @@ public class Main {
                 System.out.println("Enviando JSON: " + json);  // Para que veas en consola
 
                 sendResponse(out, dataOut, "200 OK", json, "application/json");
+
             }
             case"/form"->{
                 if("POST".equals(method)){
