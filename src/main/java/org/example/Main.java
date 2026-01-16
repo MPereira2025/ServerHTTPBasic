@@ -69,6 +69,7 @@ public class Main {
         System.out.println("EL PATH es: " + path);
         String version = parts[2];
 
+        //LEYENDO EL HEADER
         while ((headerLine = in.readLine()) != null && !headerLine.isEmpty()) {
             // Puedes parsear headers aquí si necesitas
             System.out.println("HeaderLiner: " + headerLine);
@@ -83,7 +84,7 @@ public class Main {
             }
         }
 
-        //Leer si hay body
+        //LEYENDO EL BODY
         String body = "";
         if ("POST".equals(method) && contentLength > 0){
             char[] bodyChars = new char[contentLength];
@@ -95,7 +96,7 @@ public class Main {
 
 
 
-
+        //DESGLOSANDO EL PATH
         //Despues de obtener el path = parts[1]
         String purePath = path;
         String query = null;
@@ -126,7 +127,20 @@ public class Main {
 
 
         switch(purePath){
-            
+            case"/api/hello"->{
+                if (!"GET".equals(method)) {
+                    sendResponse(out, dataOut, "405 Method Not Allowed",
+                            "<h1>405 Method Not Allowed</h1><p>Solo GET aquí</p>", "text/html");
+                    return;
+                }
+                String mensaje = "Hola desde JSON!";
+                String fecha = new java.util.Date().toString();
+                String json = String.format("{\"mensaje\": \"%s\", \"fecha\": \"%s\", \"servidor\": \"Hecho en Java puro\"}", mensaje, fecha);
+
+                System.out.println("Enviando JSON: " + json);  // Para que veas en consola
+
+                sendResponse(out, dataOut, "200 OK", json, "application/json");
+            }
             case"/form"->{
                 if("POST".equals(method)){
                     //Parsea body como form data (igual que query)
@@ -135,14 +149,14 @@ public class Main {
                     if (contentLength <= 0) {
                         sendResponse(out, dataOut, "411 Length Required",
                                 "<html><body><h1>411 Length Required</h1>" +
-                                        "<p>Se requiere Content-Length para peticiones POST con body</p></body></html>");
+                                        "<p>Se requiere Content-Length para peticiones POST con body</p></body></html>", "text/html");
                         return;
                     }
                     if (contentType == null || !contentType.contains("application/x-www-form-urlencoded")) {
                         sendResponse(out, dataOut, "415 Unsupported Media Type",
                                 "<html><body><h1>415 Unsupported Media Type</h1>" +
                                         "<p>Solo se acepta application/x-www-form-urlencoded. " +
-                                        "Content-Type recibido: " + (contentType != null ? contentType : "ninguno") + "</p></body></html>");
+                                        "Content-Type recibido: " + (contentType != null ? contentType : "ninguno") + "</p></body></html>", "text/html");
                         return;  // ¡Importante! Salir para no procesar más
                     }
 
@@ -171,7 +185,7 @@ public class Main {
                     }
                     html.append("</body></html>");
 
-                    sendResponse(out, dataOut, "200 OK", html.toString());
+                    sendResponse(out, dataOut, "200 OK", html.toString(), "text/html");
                     System.out.println("POST recibido en /form");
                     System.out.println("  - Content-Type: " + contentType);
                     System.out.println("  - Content-Length: " + contentLength);
@@ -179,7 +193,7 @@ public class Main {
                     System.out.println("  - Parámetros parseados: " + postParams);
 
                 }else {
-                    sendResponse(out, dataOut, "405 Method Not Allowed", "<h1>405 Method Not Allowed</h1><p>Solo POST aqui</p>");
+                    sendResponse(out, dataOut, "405 Method Not Allowed", "<h1>405 Method Not Allowed</h1><p>Solo POST aqui</p>", "text/html");
                 }
 
 
@@ -187,12 +201,12 @@ public class Main {
             case"/"->{
             String nombre = queryValores.getOrDefault("nombre", "Visitante");
             String responseBody = "<html><body><h1>Hello, your name is " + nombre + "</h1></body></html>";
-            sendResponse(out, dataOut, "200 OK", responseBody);
+            sendResponse(out, dataOut, "200 OK", responseBody, "text/html");
             }
             case"/hello"->{
                 String nombre = queryValores.getOrDefault("nombre", "Visitante");
                 String responseBody = "<html><body><h1>¡Hola mundo desde /hello!</h1></body></html>";
-                sendResponse(out, dataOut, "200 OK", responseBody);
+                sendResponse(out, dataOut, "200 OK", responseBody, "text/html");
             }
             case"/echo"->{
                 StringBuilder html = new StringBuilder();
@@ -212,17 +226,17 @@ public class Main {
                 html.append("</body></html>");
 
                 String responseBody = html.toString();
-                sendResponse(out, dataOut, "200 OK", responseBody);
+                sendResponse(out, dataOut, "200 OK", responseBody, "text/html");
             }
             case"/about"->{
                 String nombre = queryValores.getOrDefault("nombre", "Visitante");
                 String responseBody = "<html><body><h1>Sobre este servidor</h1><br><br><p>Hecho desde cero con java.net" +
                         "</p><br><br><p>Aprendiendo backend desde cero</p></body></html>";
-                sendResponse(out, dataOut, "200 OK", responseBody);
+                sendResponse(out, dataOut, "200 OK", responseBody, "text/html");
             }
             default->{
                 String responseBody = "<html><body><h1>404 Not Found</h1></body></html>";
-                sendResponse(out, dataOut, "404 Not Found", responseBody);
+                sendResponse(out, dataOut, "404 Not Found", responseBody, "text/html");
             }
         }
 
@@ -243,14 +257,15 @@ public class Main {
         dataOut.close();
     }
 
-    private static void sendResponse(PrintWriter out, BufferedOutputStream dataOut, String status, String body) throws IOException {
+    private static void sendResponse(PrintWriter out, BufferedOutputStream dataOut, String status, String body, String contentType) throws IOException {
         byte[] bodyBytes = body.getBytes("UTF-8");
         out.println("HTTP/1.1 " + status);
-        out.println("Content-Type: text/html; charset=utf-8");
+        out.println("Content-Type: " + contentType + "; charset=utf-8");
         out.println("Content-Length: " + bodyBytes.length);  // Siempre correcto
         out.println();
         out.flush();
         dataOut.write(bodyBytes);
         dataOut.flush();
     }
+
     }
