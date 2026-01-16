@@ -5,10 +5,7 @@ import java.io.*;
 import java.net.*;
 import java.nio.charset.StandardCharsets;
 import java.sql.SQLOutput;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.Map;
+import java.util.*;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 
@@ -127,6 +124,45 @@ public class Main {
 
 
         switch(purePath){
+            case"/api/post"-> {
+                if (!"POST".equals(method)) {
+                    sendResponse(out, dataOut, "405 Method Not Allowed", "<h1>405 Method Not Allowed</h1><p>Solo POST aqui</p>", "text/html");
+                    return;
+                }
+                //Se verifica posibles exceptiones por parte del cliente
+                    if (contentType == null || !contentType.contains("application/json")){
+                        sendResponse(out, dataOut, "415 Unsupported Media Type", "{\"error\": \"Solo se acepta application/json. Recibido: "
+                                + (contentType != null ? contentType : "ninguno") + "\"}", "application/json");
+                    return;
+                    }
+                if (contentLength <= 0){
+                    sendResponse(out, dataOut, "411 Length Required", "{\"error\": \"Se requiere Content-Length para POST con body\"}",
+                            "application/json");
+                    return;
+                }
+
+                //Arriba por fuera del switch ya se leyo el body
+                System.out.println("JSON recibido: " + body);
+
+                //Parsear JSON manualmente
+                Map<String, String> jsonParams = parseSimpleJson(body);
+
+                if (jsonParams.isEmpty()){
+                    sendResponse(out, dataOut, "400 Bad Request","{\"error\": \"JSON mal formulado o vacio\"}",
+                            "application/json");
+                    return;
+                }
+
+                //Construir respuesta JSON basada en los datos recibidos
+                String nombre = jsonParams.getOrDefault("nombre", "Visitante");
+                String edad = jsonParams.getOrDefault("edad", "desconocida");
+
+                String respuestaJson = String.format("{\"saludo\": \"Hola %s!\", \"mensaje\": \"Tienes %s years\", \"recibido\": %s}",
+                        nombre, edad, jsonParams.toString().replace("=", "\": \"").replace(", ", "\", \""));
+
+                sendResponse(out, dataOut, "200 OK", respuestaJson, "application/json");
+                }
+
             case"/api/hello"->{
                 if (!"GET".equals(method)) {
                     sendResponse(out, dataOut, "405 Method Not Allowed",
@@ -266,6 +302,50 @@ public class Main {
         out.flush();
         dataOut.write(bodyBytes);
         dataOut.flush();
+    }
+
+    private static Map<String, String> parseSimpleJson(String jsonBody) {
+        Map<String, String> map = new HashMap<>();
+
+        if (jsonBody == null || jsonBody.trim().isEmpty()) {
+            return map;
+        }
+
+        String trimmed = jsonBody.trim();
+        if (!trimmed.startsWith("{") || !trimmed.endsWith("}")) {
+            System.out.println("No es un objeto JSON válido: " + trimmed);
+            return map;
+        }
+
+        // Quitamos { y } y espacios extras
+        String content = trimmed.substring(1, trimmed.length() - 1).trim();
+
+        // Dividimos por comas, pero solo las que están fuera de comillas
+        String[] pairs = content.split(",(?=([^\"]*\"[^\"]*\")*[^\"]*$)");
+        for (String pair : pairs) {
+            pair = pair.trim();
+            if (pair.isEmpty()) continue;
+
+            // Split por : (solo el primero)
+            int colonIndex = pair.indexOf(':');
+            if (colonIndex == -1) continue;
+
+            String keyPart = pair.substring(0, colonIndex).trim();
+            String valuePart = pair.substring(colonIndex + 1).trim();
+
+            // Quitamos comillas si existen
+            if (keyPart.startsWith("\"") && keyPart.endsWith("\"")) {
+                keyPart = keyPart.substring(1, keyPart.length() - 1);
+            }
+            if (valuePart.startsWith("\"") && valuePart.endsWith("\"")) {
+                valuePart = valuePart.substring(1, valuePart.length() - 1);
+            }
+
+            map.put(keyPart, valuePart);
+        }
+
+        System.out.println("JSON parseado: " + map);
+        return map;
     }
 
     }
